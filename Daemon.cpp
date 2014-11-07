@@ -12,21 +12,25 @@ void *checkCondition(void *);
 void *checkCPUUsage(void *);
 FILE *daemonLog;
 #define LIMITE 10000
-int primo[LIMITE + 5];
+bool primo[LIMITE + 5];
 
 
 
 
 static void criba(){
+	for(int i= 0;i <= LIMITE; primo[i++]=true);
 	primo[0] = primo[1] = 0;
-	//memset(primo, true, sizeof(primo));
+	FILE *primes;
+	primes = fopen("/tmp/primes.out","w");
 	for(int i=2; i*i <= LIMITE; i++){
 		if(primo[i]){
+			fprintf(primes, "%d\n", i);
 			for(int j=i*i;j <= LIMITE; j += i){
 				primo[j] = 0;
 			}
 		}
 	}
+	fclose(primes);
 }
 
 static void skeleton_daemon()
@@ -80,7 +84,7 @@ static void skeleton_daemon()
 		close (x);
 	}
 
-
+	criba();
 	int error;
 	error = pthread_create(&threadUsers, NULL, &checkUsers, NULL) ;  
 	if(error != 0) {
@@ -104,7 +108,7 @@ int main()
 {
 	skeleton_daemon();
 	syslog (LOG_NOTICE, "First daemon started.");
-	criba();
+	
 	while (1)
 	{
 		sleep(1);
@@ -138,6 +142,14 @@ void *checkUsers(void *parameters){
 	}
 }
 void *checkCondition(void *parameters){
+	FILE *conditionslog;
+		conditionslog = fopen("/tmp/conditionslog.out","a");
+	for(int i= 0;i < LIMITE; i++){
+		if(primo[i]){
+			fprintf(conditionslog, "%d\n", i);
+		}
+	}
+	fclose(conditionslog);
 	while(1){
 		struct tm *tiempo;
 		time_t tim;
