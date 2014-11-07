@@ -11,147 +11,165 @@ void *checkUsers(void *);
 void *checkCondition(void *);
 void *checkCPUUsage(void *);
 FILE *daemonLog;
+#define LIMITE 10000
+bool primo[LIMITE + 5];
+
 
 
 
 static void criba(){
-
+	primo[0] = primo[1] = false;
+	for(int i=2; i*i <= LIMITE; i++){
+		if(primo[i]){
+			for(int j=i*i;j <= LIMITE; j += i){
+				primo[j] = false;
+			}
+		}
+	}
 }
 
 static void skeleton_daemon()
 {
-    pid_t pid;
-    
-    struct stat st;
-    pthread_t threadUsers, threadConditions, threadCPU;
-    /* Fork off the parent process */
-    pid = fork();
+	pid_t pid;
 
-    /* An error occurred */
-    if (pid < 0)
-        exit(EXIT_FAILURE);
+	struct stat st;
+	pthread_t threadUsers, threadConditions, threadCPU;
+		/* Fork off the parent process */
+	pid = fork();
 
-    /* Success: Let the parent terminate */
-    if (pid > 0)
-        exit(EXIT_SUCCESS);
+		/* An error occurred */
+	if (pid < 0)
+		exit(EXIT_FAILURE);
 
-    /* On success: The child process becomes session leader */
-    if (setsid() < 0)
-        exit(EXIT_FAILURE);
+		/* Success: Let the parent terminate */
+	if (pid > 0)
+		exit(EXIT_SUCCESS);
 
-    /* Catch, ignore and handle signals */
-    //TODO: Implement a working signal handler */
-    signal(SIGCHLD, SIG_IGN);
-    signal(SIGHUP, SIG_IGN);
+		/* On success: The child process becomes session leader */
+	if (setsid() < 0)
+		exit(EXIT_FAILURE);
 
-    /* Fork off for the second time*/
-    pid = fork();
+		/* Catch, ignore and handle signals */
+		//TODO: Implement a working signal handler */
+	signal(SIGCHLD, SIG_IGN);
+	signal(SIGHUP, SIG_IGN);
 
-    /* An error occurred */
-    if (pid < 0)
-        exit(EXIT_FAILURE);
+		/* Fork off for the second time*/
+	pid = fork();
 
-    /* Success: Let the parent terminate */
-    if (pid > 0)
-        exit(EXIT_SUCCESS);
+		/* An error occurred */
+	if (pid < 0)
+		exit(EXIT_FAILURE);
 
-    /* Set new file permissions */
-    umask(0);
+		/* Success: Let the parent terminate */
+	if (pid > 0)
+		exit(EXIT_SUCCESS);
 
-    /* Change the working directory to the root directory */
-    /* or another appropriated directory */
-    chdir("/");
+		/* Set new file permissions */
+	umask(0);
 
-    /* Close all open file descriptors */
-    int x;
-    for (x = sysconf(_SC_OPEN_MAX); x>0; x--)
-    {
-        close (x);
-    }
+		/* Change the working directory to the root directory */
+		/* or another appropriated directory */
+	chdir("/");
+
+		/* Close all open file descriptors */
+	int x;
+	for (x = sysconf(_SC_OPEN_MAX); x>0; x--)
+	{
+		close (x);
+	}
 
 
-    int error;
-    error = pthread_create(&threadUsers, NULL, &checkUsers, NULL) ;  
-    if(error != 0) {
-            syslog( LOG_ERR, "No se pudo crear el hilo" );
-            exit( EXIT_FAILURE );
-    }
-    error = pthread_create(&threadConditions, NULL, &checkCondition, NULL) ;  
-    if(error != 0) {
-            syslog( LOG_ERR, "No se pudo crear el hilo" );
-            exit( EXIT_FAILURE );
-    }
-    error = pthread_create(&threadCPU, NULL, &checkCPUUsage, NULL) ;  
-    if(error != 0) {
-            syslog( LOG_ERR, "No se pudo crear el hilo" );
-            exit( EXIT_FAILURE );
-    }
-    /* Open the log file */
-    openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
+	int error;
+	error = pthread_create(&threadUsers, NULL, &checkUsers, NULL) ;  
+	if(error != 0) {
+		syslog( LOG_ERR, "No se pudo crear el hilo" );
+		exit( EXIT_FAILURE );
+	}
+	error = pthread_create(&threadConditions, NULL, &checkCondition, NULL) ;  
+	if(error != 0) {
+		syslog( LOG_ERR, "No se pudo crear el hilo" );
+		exit( EXIT_FAILURE );
+	}
+	error = pthread_create(&threadCPU, NULL, &checkCPUUsage, NULL) ;  
+	if(error != 0) {
+		syslog( LOG_ERR, "No se pudo crear el hilo" );
+		exit( EXIT_FAILURE );
+	}
+		/* Open the log file */
+	openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
 }
 int main()
 {
-    skeleton_daemon();
-    syslog (LOG_NOTICE, "First daemon started.");
-    while (1)
-    {
-        sleep(1);
-    }
+	skeleton_daemon();
+	syslog (LOG_NOTICE, "First daemon started.");
+	criba();
+	while (1)
+	{
+		sleep(1);
+	}
 
-    syslog (LOG_NOTICE, "First daemon terminated.");
-    closelog();
+	syslog (LOG_NOTICE, "First daemon terminated.");
+	closelog();
 
-    return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
 
 
 
 void *checkUsers(void *parameters){
-    while(1){
-        struct tm *tiempo;
-        time_t tim;
+	while(1){
+		
+		struct tm *tiempo;
+		time_t tim;
 
-        time(&tim);
-        tiempo = localtime(&tim);
-        char cadena[128];
-        strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
+		time(&tim);
+		tiempo = localtime(&tim);
+		char cadena[128];
+		strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
 
-        FILE *userLog;
-        userLog = fopen("/tmp/userlog.out","a");
-        fprintf(userLog,"[%s] -> CHeking for users\n", cadena);
-        fclose(userLog);
-        sleep (10);
-    }
+		FILE *userLog;
+		userLog = fopen("/tmp/userlog.out","a");
+		
+		fprintf(userLog,"[%s] -> CHeking for users\n", cadena);
+		fclose(userLog);
+		sleep (10);
+	}
 }
 void *checkCondition(void *parameters){
-    while(1){
-        struct tm *tiempo;
-        time_t tim;
-
-        time(&tim);
-        tiempo = localtime(&tim);
-        char cadena[128];
-        strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
-        FILE *conditionslog;
-        conditionslog = fopen("/tmp/conditionslog.out","a");
-        fprintf(conditionslog,"[%s] -> CHeking for conditions\n",cadena);
-        fclose(conditionslog);
-        sleep (5);
-    }
+	while(1){
+		struct tm *tiempo;
+		time_t tim;
+		srand(time(NULL));
+		int r = rand() % LIMITE;
+		time(&tim);
+		tiempo = localtime(&tim);
+		char cadena[128];
+		strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
+		FILE *conditionslog;
+		conditionslog = fopen("/tmp/conditionslog.out","a");
+		if(primo[r]){
+			fprintf(conditionslog,"[%s] -> CHeking for conditions trueeeee\n",cadena);
+		}else{
+			fprintf(conditionslog,"[%s] -> CHeking for conditions falseeeeee\n",cadena)
+		}
+		fclose(conditionslog);
+		sleep (5);
+	}
 }
 void *checkCPUUsage(void *parameters){
-    while(1){
-        struct tm *tiempo;
-        time_t tim;
+	while(1){
+		struct tm *tiempo;
+		time_t tim;
 
-        time(&tim);
-        tiempo = localtime(&tim);
-        char cadena[128];
-        strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
-        FILE *cpuUsage;
-        cpuUsage = fopen("/tmp/cpuUsage.out","a");
-        fprintf(cpuUsage,"[%s] -> CHeking for CPU\n",cadena);
-        fclose(cpuUsage);
-        sleep (1);
-    }
+		time(&tim);
+		tiempo = localtime(&tim);
+		char cadena[128];
+		strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
+		FILE *cpuUsage;
+		cpuUsage = fopen("/tmp/cpuUsage.out","a");
+		fprintf(cpuUsage,"[%s] -> CHeking for CPU\n",cadena);
+		fclose(cpuUsage);
+		sleep (1);
+	}
 }
