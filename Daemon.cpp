@@ -7,6 +7,25 @@
 #include <signal.h>
 #include <pthread.h>
 #include <time.h>
+#include <utmp.h>
+#include <err.h>
+
+#define NAME_WIDTH  8
+FILE *file(char *name)
+    {
+        FILE *ufp;
+
+        if (!(ufp = fopen(name, "r"))) {
+            err(1, "%s", name);
+        }
+        return(ufp);
+    }
+
+
+
+    
+    
+
 void *checkUsers(void *);
 void *checkCondition(void *);
 void *checkCPUUsage(void *);
@@ -124,7 +143,10 @@ int main()
 
 void *checkUsers(void *parameters){
 	while(1){
-		
+		FILE *ufp;
+	    
+
+
 		struct tm *tiempo;
 		time_t tim;
 
@@ -137,6 +159,16 @@ void *checkUsers(void *parameters){
 		userLog = fopen("/tmp/userlog.out","a");
 		
 		fprintf(userLog,"[%s] -> CHeking for users\n", cadena);
+		int numberOfUsers = 0;
+	    struct utmp usr;
+	    ufp = file(_PATH_UTMP);
+	    while (fread((char *)&usr, sizeof(usr), 1, ufp) == 1) {
+	    if (*usr.ut_name && *usr.ut_line && *usr.ut_line != '~') {
+         		fprintf(userLog,"[%d] -> [%s], PID [%d]\n",  ++numberOfUsers,usr.ut_user, usr.ut_pid);
+        	}
+    	}
+
+
 		fclose(userLog);
 		sleep (10);
 	}
