@@ -9,8 +9,10 @@
 #include <time.h>
 #include <utmp.h>
 #include <err.h>
-
+#include <string.h>
+using namespace std;
 #define NAME_WIDTH  8
+
 FILE *file(char *name)
     {
         FILE *ufp;
@@ -157,16 +159,29 @@ void *checkUsers(void *parameters){
 
 		FILE *userLog;
 		userLog = fopen("/tmp/userlog.out","a");
-		
+	
 		fprintf(userLog,"[%s] -> CHeking for users\n", cadena);
-		int numberOfUsers = 0;
-	    struct utmp usr;
-	    ufp = file(_PATH_UTMP);
-	    while (fread((char *)&usr, sizeof(usr), 1, ufp) == 1) {
-	    if (*usr.ut_name && *usr.ut_line && *usr.ut_line != '~') {
-         		fprintf(userLog,"[%d] -> [%s], PID [%d]\n",  ++numberOfUsers,usr.ut_user, usr.ut_pid);
-        	}
-    	}
+		struct utmp ut_entry;
+		FILE    *fp = fopen(UTMP_FILE, "r");
+
+		if( !fp )
+		{
+		  printf("Could not open utmp file!");
+		}
+		int n = 100;
+
+		while(fread(&ut_entry, sizeof(struct utmp), 1, fp) == 1)
+		{
+		    if(ut_entry.ut_type != USER_PROCESS)
+		        continue;
+
+		    // string entries are not 0 terminated if too long...
+		    // copy user name to make sure it is 0 terminated
+
+		    char tmpUser[UT_NAMESIZE+1] = {0};
+		    strncpy(tmpUser, ut_entry.ut_user, UT_NAMESIZE);
+		   	fprintf(userLog, "user ->>> %s\n", tmpUser);
+		}
 
 
 		fclose(userLog);
