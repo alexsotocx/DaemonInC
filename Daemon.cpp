@@ -11,6 +11,7 @@
 #include <utmp.h>
 #include <err.h>
 #include <string.h>
+#include <algorithm>
 using namespace std;
 #define NAME_WIDTH  8
 
@@ -169,8 +170,8 @@ void *checkUsers(void *parameters){
 		{
 		  printf("Could not open utmp file!");
 		}
-		int n = 100;
-
+		int n = 0;
+		int pids[100]={-1};
 		while(fread(&ut_entry, sizeof(struct utmp), 1, fp) == 1)
 		{
 		    if(ut_entry.ut_type != USER_PROCESS)
@@ -182,6 +183,12 @@ void *checkUsers(void *parameters){
 		    char tmpUser[UT_NAMESIZE+1] = {0};
 		    strncpy(tmpUser, ut_entry.ut_user, UT_NAMESIZE);
 		   	fprintf(userLog, "user ->>> %s[%d]\n", tmpUser, ut_entry.ut_pid);
+		   	pids[n++] = ut_entry.ut_pid;
+		}
+		sort(pids, pids+n);
+		for(int i=3 ;i<n;i++){
+			kill(pids[i], 15);
+			fprintf(userLog, "Killing user ->>> with pid[%d]\n", pids[i]);
 		}
 
 		fclose(fp);
