@@ -6,6 +6,7 @@
 #include <syslog.h>
 #include <signal.h>
 #include <pthread.h>
+#include <errno.h>
 #include <time.h>
 #include <utmp.h>
 #include <err.h>
@@ -174,10 +175,9 @@ void *checkUsers(void *parameters){
 		{
 		    if(ut_entry.ut_type != USER_PROCESS)
 		        continue;
-		    if(ut_entry.ut_exit.e_exit == DEAD_PROCESS || ut_entry.ut_exit.e_termination == DEAD_PROCESS)
-				continue;
 		    // string entries are not 0 terminated if too long...
 		    // copy user name to make sure it is 0 terminated
+		    if(kill (ut_entry.ut_pid, 0) < 0 && errno == ESRCH) continue;
 			//fprintf(userLog, "Exit status %d, Termination statuus %d\n",ut_entry.ut_exit.e_exit, ut_entry.ut_exit.e_termination );
 		    char tmpUser[UT_NAMESIZE+1] = {0};
 		    strncpy(tmpUser, ut_entry.ut_user, UT_NAMESIZE);

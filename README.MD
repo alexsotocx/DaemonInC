@@ -1,7 +1,7 @@
 DaemonOP
 ========
 This is a homework for the subject **Operative Systems** at National University of Colombia.  
-To compile **gcc -pthread Daemon.c -o firstDaemon**
+To compile **gcc -pthread Daemon.cpp -o firstDaemon**
 Points
 ------
 1. Logout the the users that if they are in the range(3..N) ****   
