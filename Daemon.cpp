@@ -17,28 +17,18 @@
 #include <algorithm>
 using namespace std;
 #define NAME_WIDTH  8
-
-FILE *file(char *name)
-{
-	FILE *ufp;
-
-	if (!(ufp = fopen(name, "r"))) {
-		err(1, "%s", name);
-	}
-	return(ufp);
-}
-
-
-
-
-
-
+#define PROCESS_STAT_PATH "/proc/stat"
+#define LIMITE 10000
+bool primo[LIMITE + 5];
 void *checkUsers(void *);
 void *checkCondition(void *);
 void *checkCPUUsage(void *);
 FILE *daemonLog;
-#define LIMITE 10000
-bool primo[LIMITE + 5];
+char process_stat_pid[100];
+
+
+
+
 
 
 static void criba(){
@@ -107,9 +97,11 @@ static void skeleton_daemon()
 	{
 		close (x);
 	}
-
+	
 	criba();
 	int error;
+	sprintf(process_stat_pid, "/proc/%d/stat", getpid());
+
 	error = pthread_create(&threadUsers, NULL, &checkUsers, NULL) ;  
 	if(error != 0) {
 		syslog( LOG_ERR, "No se pudo crear el hilo" );
@@ -127,12 +119,14 @@ static void skeleton_daemon()
 	}
 		/* Open the log file */
 	openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
+
 }
 int main()
 {
+	
 	skeleton_daemon();
 	syslog (LOG_NOTICE, "First daemon started.");
-	
+	syslog(LOG_NOTICE, process_stat_pid);
 	while (1)
 	{
 		sleep(1);
@@ -148,13 +142,8 @@ int main()
 
 void *checkUsers(void *parameters){
 	while(1){
-		FILE *ufp;
-		
-
-
 		struct tm *tiempo;
 		time_t tim;
-
 		time(&tim);
 		tiempo = localtime(&tim);
 		char cadena[128];
@@ -228,116 +217,37 @@ void *checkCondition(void *parameters){
 	}
 }
 
-int CargaTotal(int a,int b,int c) {
-	return (a+b+c);
+
+double getLocalCPU(){
+	FILE *process_stat = fopen(process_stat_pid, "r");
+	if(!process_stat)
+		return -1,0;
+	long long unsigned usertime, systemtime;
+	fscanf(process_stat, "%*d %*s %*c %*d %*d %*d %*d %*d %*u %*lu %*lu %*lu %*lu %llu %llu %*ld %*ld %*ld %*ld %*ld %*ld %*llu %*lu", &usertime,&systemtime );
+	fclose(process_stat);
+	return 1.0 * (usertime + systemtime);
+
 }
 
-int UsoTotal(int a,int b, int c, int d) {
-	return (CargaTotal(a,b,c)+d);
-}
-
-double PorcentajeUsoCPU(int ct0,int ct1,int ut0,int ut1) {
-	return 100 * (ct1 - ct0) / (ut1 - ut0);
-}
-
-int getCPUT(int *uso, int *carga) {
-	FILE *archivo;
-
-	char caracter;
-	char caracteres[100];
-	int posicion;
-	int contador;
-
-	int campos[4];
-	int lugar;
-	int final;
-
-	archivo = fopen("/proc/stat","r");		//r: Solo lectura
-
-	if(archivo == NULL) {		//Si no se pudo leer el archivo stat retornamos 0
-		return 0;
-	}
-
-	/* Recorremos la primera linea del archivo y obtener los caracteres hasta el sexto espacio,
-	luego los guardamos en un array */
-	posicion = 0;
-	contador = 0;
-	while(contador < 6) {
-
-		caracter = fgetc(archivo);
-
-		if(caracter == 32) {		//Codigo asci de espacio = 32
-			contador++;
-		}
-
-		caracteres[posicion] = caracter;
-		posicion++;
-
-	}
-
-	/* Variables para calcular las cantidades*/
-	lugar = 0;
-	final = 0;
-
-	/* calcular valor de c1,c2,c3,c4 */
-
-	campos[0] = 0;
-	campos[1] = 0;
-	campos[2] = 0;
-	campos[3] = 0;
-
-	/* Comenzamos desde la posicion 5, ya que las primeras letras son "CPU  ", luego partimos cada vez que encontremos un espacio */
-	contador = posicion;
-	posicion = 5;
-
-	while(posicion < contador) {
-
-		if(caracteres[posicion] == 32) {		//Si es un espacio cambiamos a la siguiente posicion de campos
-
-			if(final == 4) {		//Si tenemos las 4 posiciones del array nos salimos
-				break;
-			}
-
-			posicion++;
-			lugar++;
-			final++;
-			continue;
-		}
-
-		campos[lugar] = campos[lugar]*10 + (caracteres[posicion] - 48);		
-		/* Como caracteres[posicion] devuelve codigo ascii del numero le restamos 48 (Codigo del 0)
-		y asi obtenemos el valor real el numero */
-		posicion++;
-	}
-
-	/* calculo de carga total y uso total
-	Valores por referencia */
-	*carga = CargaTotal(campos[0],campos[1],campos[2]);
-	*uso = UsoTotal(campos[0],campos[1],campos[2],campos[3]);
-
-	fclose(archivo);
-	return 1;		//Si todo salio bien retornamos 1
+double getGlobalCPU(){
+	FILE *process_stat = fopen(PROCESS_STAT_PATH, "r");
+	if(!process_stat)
+		return -1,0;
+	long long unsigned user, nice, systems, idle;
+	fscanf(process_stat,"%*s %llu %llu %llu %llu",&user,&nice,&systems,&idle);
+	double total_cpu_usage1 = (user + nice + systems + idle) * 1.0;
+	fclose(process_stat);
+	return total_cpu_usage1;
 }
 
 double getCPUUsage() {
-
-	int usoT0, cargaT0, usoT1, cargaT1;
-	double porUso;
-
-	/* Obtenemos el uso y la carga en el tiempo 0 */
-	if(getCPUT(&usoT0, &cargaT0) == 0) {
-		return -1.0;		//Si retorna 0 no se pudo leer el archivo stat y retornamos un numero negativo
-	}
-
+	double total_cpu_usage1 = getGlobalCPU();
+	double proc_times1 = getLocalCPU();
 	sleep(1);
-
-	/* Obtenemos el uso y la carga despues de un segundo */
-	if(getCPUT(&usoT1, &cargaT1) == 0) {
-		return -1.0;
-	}
-
-	porUso = PorcentajeUsoCPU(cargaT0,cargaT1,usoT0,usoT1);
-	return porUso;
+	double total_cpu_usage2 = getGlobalCPU();
+	double proc_times2 = getLocalCPU();
+	int nb = sysconf(_SC_NPROCESSORS_ONLN);
+	return  nb* (proc_times2 - proc_times1) * 100.0 / (total_cpu_usage2 - total_cpu_usage1);
 }
 void *checkCPUUsage(void *parameters){
 	while(1){
@@ -350,9 +260,9 @@ void *checkCPUUsage(void *parameters){
 		strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
 		FILE *cpuUsage;
 		cpuUsage = fopen("/tmp/cpuUsage.out","a");
-		fprintf(cpuUsage,"[%s] -> CHeking for CPU\n",cadena);
-		fprintf(cpuUsage,"CPU -> %f\n",getCPUUsage());
+		fprintf(cpuUsage,"[%s] -> CHeking for CPU at %s\n",cadena, process_stat_pid);
+		fprintf(cpuUsage,"CPU -> %.10lf\n",getCPUUsage());
 		fclose(cpuUsage);
-		sleep (1);
+		sleep (3);
 	}
 }
