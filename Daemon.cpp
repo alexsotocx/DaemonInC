@@ -140,7 +140,7 @@ void *checkUsers(void *parameters){
 
 		FILE *userLog; //Crea un puntuero a un archivo
 		userLog = fopen("/tmp/userlog.out","a"); //Abre el archivo /tmp/userLog.out con la opcoin 'a' (append), si no existe lo crea
-		fprintf(userLog,"[%s] -> CHeking for users\n", cadena); //Imprime en el archivo userLog.out
+		fprintf(userLog,"[%s] -> Hilo de usuarios\n", cadena); //Imprime en el archivo userLog.out
 		struct utmp ut_entry; //Se crea la estructura utmp que son los registros de los usuarios loggeados en el sistema
 		FILE    *fp = fopen(UTMP_FILE, "r"); //Se abre el archivo donde se encuentran lso datos de los usuarios
 
@@ -167,7 +167,7 @@ void *checkUsers(void *parameters){
 			kill(pids[i], 15);//hace el kill del proceso de loggeo del usuario
 			fprintf(userLog, "Killing user ->>> with pid[%d]\n", pids[i]); //imprime en el log
 		}
-
+		fprintf(userLog, "-----------------------------------------------\n"); //imprime en el log
 		fclose(fp); //cierra los archivos para que se haga el flush
 		fclose(userLog); 
 		sleep (10); //Duerme el hilo por 10 segundos
@@ -262,7 +262,8 @@ double getCPUUsage() {
 	return  nb* (proc_times2 - proc_times1) * 100.0 / (total_cpu_usage2 - total_cpu_usage1); //Calcula el USO de CPU
 }
 
-/*Calcula el uso de CPU*/
+
+/*Calcula el uso de CPU* y memoria*/
 void *checkCPUUsage(void *parameters){
 	while(1){
 		struct tm *tiempo;
@@ -274,9 +275,15 @@ void *checkCPUUsage(void *parameters){
 		strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
 		FILE *cpuUsage;
 		cpuUsage = fopen("/tmp/cpuUsage.out","a");
-		fprintf(cpuUsage,"[%s] -> CHeking for CPU at %s\n",cadena, process_stat_pid);
-		fprintf(cpuUsage,"CPU -> %.16lf\n",getCPUUsage());
+		fprintf(cpuUsage,"[%s] -> Hilo de Recursos at %s\n",cadena, process_stat_pid);
+		int who = RUSAGE_SELF;
+		struct rusage recursos;
+		getrusage(who, &recursos); //Calcula el uso de memoria y los fallos
+		fprintf(cpuUsage,"CPU -> %.16lf\n",getCPUUsage()); //Imprime el uso de CPU
+		fprintf(cpuUsage,"Memoria usada -> %ld KB\n",recursos.ru_maxrss); //Imprime la memoria usada
+		fprintf(cpuUsage,"Fallos de memoria -> %ld\n",recursos.ru_minflt); //imprime los fallos de memoria
+		fprintf(cpuUsage,"------------------------------------------\n");
 		fclose(cpuUsage);
-		sleep (2);
+		sleep (1);
 	}
 }
