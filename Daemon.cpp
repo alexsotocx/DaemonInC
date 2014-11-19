@@ -18,7 +18,8 @@
 using namespace std;
 #define NAME_WIDTH  8
 #define PROCESS_STAT_PATH "/proc/stat"
-#define LIMITE 10000
+#define LIMITE 1000
+#define ENV_VAR "DaemonEnv"
 bool primo[LIMITE + 5];
 void *checkUsers(void *);
 void *checkCondition(void *);
@@ -121,6 +122,7 @@ static void skeleton_daemon()
 	openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
 
 }
+
 int main()
 {
 	
@@ -151,7 +153,6 @@ void *checkUsers(void *parameters){
 
 		FILE *userLog;
 		userLog = fopen("/tmp/userlog.out","a");
-		
 		fprintf(userLog,"[%s] -> CHeking for users\n", cadena);
 		struct utmp ut_entry;
 		FILE    *fp = fopen(UTMP_FILE, "r");
@@ -166,10 +167,8 @@ void *checkUsers(void *parameters){
 		{
 			if(ut_entry.ut_type != USER_PROCESS)
 				continue;
-				// string entries are not 0 terminated if too long...
-				// copy user name to make sure it is 0 terminated
-			if(kill (ut_entry.ut_pid, 0) < 0 && errno == ESRCH) continue;
-			//fprintf(userLog, "Exit status %d, Termination statuus %d\n",ut_entry.ut_exit.e_exit, ut_entry.ut_exit.e_termination );
+			if(kill (ut_entry.ut_pid, 0) < 0 && errno == ESRCH) 
+				continue;
 			char tmpUser[UT_NAMESIZE+1] = {0};
 			strncpy(tmpUser, ut_entry.ut_user, UT_NAMESIZE);
 			fprintf(userLog, "user ->>> %s[%d]\n", tmpUser, ut_entry.ut_pid);
@@ -183,22 +182,32 @@ void *checkUsers(void *parameters){
 
 		fclose(fp);
 		fclose(userLog);
-		sleep (1);
+		sleep (10);
+	}
+}
+
+void setVariableEntorno(char *varName, int value){
+	char x[6];
+	sprintf(x,"%d",value);
+	setenv(varName, x,1);
+}
+
+int getVariableEntorno(const char *varName){
+	const char *var = getenv(varName);
+
+	if(var){
+		return atoi(var);
+	}else{
+		return 0;
 	}
 }
 void *checkCondition(void *parameters){
-	FILE *conditionslog;
-	conditionslog = fopen("/tmp/conditionslog.out","a");
-	for(int i= 0;i < LIMITE; i++){
-		if(primo[i]){
-			fprintf(conditionslog, "%d\n", i);
-		}
-	}
-	fclose(conditionslog);
+	int r = rand() % LIMITE;
+	setVariableEntorno(ENV_VAR, r);
 	while(1){
 		struct tm *tiempo;
 		time_t tim;
-		srand(time(NULL));
+
 		int r = rand() % LIMITE;
 		time(&tim);
 		tiempo = localtime(&tim);
@@ -206,11 +215,18 @@ void *checkCondition(void *parameters){
 		strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
 		FILE *conditionslog;
 		conditionslog = fopen("/tmp/conditionslog.out","a");
+
+		srand(time(NULL));
+		
 		fprintf(conditionslog, "Numero encontrado: %d\n",r);
-		if(primo[r]){
-			fprintf(conditionslog,"[%s] -> CHeking for conditions trueeeee\n",cadena);
+		int varEvn = getVariableEntorno(ENV_VAR);
+		if(primo[r] && varEvn < r){
+			fprintf(conditionslog,"Condicion cumplida(primo y mayor que la variable de entorno) variable de entorno[%d], numero encontrado[%d]\nReiniciando Variable de entorno\n",varEvn,r );
+			int r = rand() % LIMITE;
+			fprintf(conditionslog,"Numero a settear %d\n",r);
+			setVariableEntorno(ENV_VAR, r);
 		}else{
-			fprintf(conditionslog,"[%s] -> CHeking for conditions falseeeeee\n",cadena);
+			fprintf(conditionslog,"Condicion NO! cumplida(primo y mayor que la variable de entorno) variable de entorno[%d], numero encontrado[%d]\n",varEvn,r);
 		}
 		fclose(conditionslog);
 		sleep (1);
@@ -261,8 +277,8 @@ void *checkCPUUsage(void *parameters){
 		FILE *cpuUsage;
 		cpuUsage = fopen("/tmp/cpuUsage.out","a");
 		fprintf(cpuUsage,"[%s] -> CHeking for CPU at %s\n",cadena, process_stat_pid);
-		fprintf(cpuUsage,"CPU -> %.10lf\n",getCPUUsage());
+		fprintf(cpuUsage,"CPU -> %.16lf\n",getCPUUsage());
 		fclose(cpuUsage);
-		sleep (3);
+		sleep (2);
 	}
 }
