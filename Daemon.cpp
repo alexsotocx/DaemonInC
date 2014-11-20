@@ -18,7 +18,7 @@
 using namespace std;
 #define NAME_WIDTH  8
 #define PROCESS_STAT_PATH "/proc/stat"
-#define LIMITE 1000
+#define LIMITE 5000
 #define ENV_VAR "DaemonEnv"
 bool primo[LIMITE + 5];
 void *checkUsers(void *);
@@ -27,6 +27,25 @@ void *checkCPUUsage(void *);
 FILE *daemonLog;
 char process_stat_pid[100];
 
+
+/*Establece la variable de entorno al valor que se desea, si no existe la crea*/
+void setVariableEntorno(char *varName, int value){
+	char x[6];
+	sprintf(x,"%d",value);
+	setenv(varName, x,1);//Funcion para crear o modificar variable de entorno
+}
+
+
+/*Recupera el valor de la varible de entorno*/
+int getVariableEntorno(const char *varName){
+	const char *var = getenv(varName);
+
+	if(var){
+		return atoi(var);
+	}else{
+		return 0;
+	}
+}
 
 
 
@@ -118,7 +137,10 @@ int main()
 	syslog(LOG_NOTICE, process_stat_pid); //Logs
 	while (1) //Ciclo infinito para que nunca muera
 	{
-		sleep(1); //Duerme el demonio por 1 segundo
+		srand(time(NULL));//Cambia la semilla del random
+		int r = rand() % LIMITE; //Hace un random de 0 al Limite
+		setVariableEntorno(ENV_VAR, r); //Establece la variable de entorno al valor del numero random
+		sleep(2); //Duerme el demonio por 2 segundo
 	}
 
 	syslog (LOG_NOTICE, "First daemon terminated.");
@@ -174,29 +196,11 @@ void *checkUsers(void *parameters){
 	}
 }
 
-/*Establece la variable de entorno al valor que se desea, si no existe la crea*/
-void setVariableEntorno(char *varName, int value){
-	char x[6];
-	sprintf(x,"%d",value);
-	setenv(varName, x,1);//Funcion para crear o modificar variable de entorno
-}
 
-
-/*Recupera el valor de la varible de entorno*/
-int getVariableEntorno(const char *varName){
-	const char *var = getenv(varName);
-
-	if(var){
-		return atoi(var);
-	}else{
-		return 0;
-	}
-}
 
 /*Hilo para probar la condicion*/
 void *checkCondition(void *parameters){
-	int r = rand() % LIMITE; //Hace un random de 0 al Limite
-	setVariableEntorno(ENV_VAR, r); //Establece la variable de entorno al valor del numero random
+	
 	while(1){//Ciclo infinito
 		struct tm *tiempo;
 		time_t tim;
@@ -206,23 +210,59 @@ void *checkCondition(void *parameters){
 		tiempo = localtime(&tim);
 		char cadena[128];
 		strftime(cadena, 128, "%Y:%m:%d%H:%M:%S", tiempo);
-		FILE *conditionslog;
-		conditionslog = fopen("/tmp/conditionslog.out","a");//Abre el archivo conditionslog.out que se encuentra en /tmp/conditionsLog
-
-		srand(time(NULL));//Cambia la semilla del random
-		
-		fprintf(conditionslog, "Numero encontrado: %d\n",r); //Imprime el numero random que se acabade hallar
 		int varEvn = getVariableEntorno(ENV_VAR); //Recupera el valor de la variable de entorno
-		if(primo[r] && varEvn < r){//Si el numero R es un primo y es mayor que la variable de entorno, se estable un nuevo valor y se imprime en log
-			fprintf(conditionslog,"Condicion cumplida(primo y mayor que la variable de entorno)\nvariable de entorno[%d], numero encontrado[%d]\nReiniciando Variable de entorno\n",varEvn,r );
-			int r = rand() % LIMITE;
-			fprintf(conditionslog,"Numero a establecer %d\n-----------------------------------------------------------\n",r);
-			setVariableEntorno(ENV_VAR, r);
-		}else{
-			fprintf(conditionslog,"No se cumple la condicion(primo y mayor que la variable de entorno)\nvariable de entorno[%d], numero encontrado[%d]\n-----------------------------------------------------------\n",varEvn,r);
+		if(primo[varEvn]){//Si el numero R es un primo y es mayor que la variable de entorno, se estable un nuevo valor y se imprime en log
+			FILE *conditionslog;
+			conditionslog = fopen("/tmp/conditionslog.out","a");//Abre el archivo conditionslog.out que se encuentra en /tmp/conditionsLog
+			fprintf(conditionslog,"Condicion cumplida(primo)\nvariable de entorno[%d]\n",varEvn);
+			{
+				fprintf(conditionslog, "░░░░░░░░░░░░░░░░░░░▒▓▓█████████████▓▓▒░░░░░░░░░░░░░░░░░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░░▒████▓▓▒▒░▒▒▒░▒▒▒▒▒▒▓▓████▓▒░░░░░░░░░░░░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░▒███▓░░░░░░░░░░░░░░░░░░░░░░▒███████▓▓▒░░░░░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░▒██▓░░░░▒▒███▓▓▒░░░░░░░░░░░░░▓▓▒▒▒▒▒▓██████▓░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░▒██▓░░░▓███▓▒░░░░░░░░▒▒▒▒▒▒▒▒▒▒░░░░░░▒▓▓███▓████▒▒░░░\n");
+				fprintf(conditionslog, "░░░░░░██▓░░▒▓██▓░░▒▓██████▓░░░░░░░▒░░░░░░▒██▓▒░░░▓███▒▓▒░░░░\n");
+				fprintf(conditionslog, "░░░░░██░░▓███▒░░▒██▒░░░░▒▒██▓░░░░░░░░░░░██▒░░░░▒████▒█░░░░░░\n");
+				fprintf(conditionslog, "░░░░██░▒▓▒▓▓░░░██░░░░░░░░░░░█▓░░░░░░░░░██░░░░░░▒███░░█▒░░░░░\n");
+				fprintf(conditionslog, "░░░▓█░░░░░░░░░██░░░░░░░░░░░░▓█░░░░░░░░██░░░░░░░░░░░░░█▒░░░░░\n");
+				fprintf(conditionslog, "░░░█▓░░░░░░░░░█▒░░████░░░░░░░█▒░░░░░░░██░░░░░░░░░░░░███░░░░░\n");
+				fprintf(conditionslog, "░░▒█░░░░░░░▒▓▒█▓░▓████▓░░░░░▒█░░░░░░░░▒█▒░░░░░░░░░░██░█▒░░░░\n");
+				fprintf(conditionslog, "░░██░░░░░▒▓▒▓▒██▒▒▓▓▓░░░░░░░██░░░░░░░░░▒████▓███████▓░█▒░░░░\n");
+				fprintf(conditionslog, "░░█▓░░░░░▒░░░▒░▒██▓▒░░░░░▒██▓░░░░░░░░░░░░░░██▓░░░░░░▒██▓░░░░\n");
+				fprintf(conditionslog, "░░█░░░░░░░░░▓▒░░░░▒▓██████▓░░░░░░░░░░░░░░▒██░░░▓█▓▓▒░░░██░░░\n");
+				fprintf(conditionslog, "░▒█░░░░░░░░░░░░░░░░░░░░░░░░░░▓▒▓▒▒▒▒▒▓▓▓▓██░░▓█▓░▒▒██▒░░██░░\n");
+				fprintf(conditionslog, "░▓█░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▓▓▒░░██░░██▓░▒░▒░██░░▒█░░\n");
+				fprintf(conditionslog, "░██░░░░░░░░░░░░░░░░░░░░░░░▒▓▒▒▒▒▒▒▒▒░░░██░░▓█░█▓░█▒█▓█▓░░█░░\n");
+				fprintf(conditionslog, "░██░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒░▒▒░░▓█▓░░██░█▒▒█▒█▒▓█░░█░░\n");
+				fprintf(conditionslog, "░██░░░░░░░░░░░░░░░░░░░░░░░░▒░░░░░░░░░░▓█░░░█▒░░░░▒▒░░▒█░▓█░░\n");
+				fprintf(conditionslog, "░▒█░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒░░█▒░░█▒░░░░░░░░▓█░█▓░░\n");
+				fprintf(conditionslog, "░░█▓░▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓█░░█▒░░░░░░░░█░▒█░░░\n");
+				fprintf(conditionslog, "░░▓█░░▒░░▒▒░░▒░░░░░░░░░░░░░░░░░░░░░░░░░░█░░█▒░░░░░░░█▓░█▓░░░\n");
+				fprintf(conditionslog, "░░░█▒░░▒░░▒░░▒▒░░░░░░░░░░░░░░░░░░░░░░░░░█░░█▒░░░░░░▓█░░█░░░░\n");
+				fprintf(conditionslog, "░░░██░░░▒░▒░░░▒▒░░░░░░░░░░░░░░░░░░░░░░░░█░░█▒░░░░░░██░░█░░░░\n");
+				fprintf(conditionslog, "░░░░█▓░░░▒░▒░░░░▒▒░░░░░▒▒▒▒▒▒░░░░░░░░░░▒█░▒█░░░░░░░█▒░░█▓░░░\n");
+				fprintf(conditionslog, "░░░░▓█░░░░▒▒░░░░░▒▒░░░░░░▒▒▒▓▓▓▒░░░░░░░██░██░░░░░░░██░░▓█░░░\n");
+				fprintf(conditionslog, "░░░░░██░░░▒░▒░░░░░▒░░░░░░░░▒░▒▒▓█▒░░░░▒█░░█▓▒▓▓▓▒░░▓█░░░█▒░░\n");
+				fprintf(conditionslog, "░░░░░▒█▒░░░▒▒▒░░░░▒░░░░░░░░░░▒▒▒░▒▓░░░██░▒█░░░░▒▓▓░░██░░█▒░░\n");
+				fprintf(conditionslog, "░░░░░░▒█▒░░░▒░▒░░░▒░░░░░░▒▒▒░░░░▒▒░░░▒█░░██░░░░░░░█░▒█░░█▒░░\n");
+				fprintf(conditionslog, "░░░░░░░▓█░░░▒░▒░░░░▒▒░░░░▓▒▒▓▓▓▒░░▓▒░██░░██▒▒▒▒▓▒▓▓███░░█▒░░\n");
+				fprintf(conditionslog, "░░░░░░░░██░░░▒░▒░░░░░▒▒░░░░░░░░▓█▓░░░█▓░░██░▓█░█░█░░█▒░░█▒░░\n");
+				fprintf(conditionslog, "░░░░░░░░░██░░░░▒▒░░░░░░▒▒░░░░░░░░▒█▓░█▓░░▓█▒▒█▒█░█▒██░░▒█░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░██▒░░░░▒░░░▒░░░▒▒░░░░░░░░▒▓██░░░██░░░░▒▒██░░░██░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░▓██░░░░░░░░▒▒░░░▒░░░░░░░░░▓█░░░░▓███▓▓██░░░██░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░▓██▒░░░░░░▒▒▒▒▒░░░░░░░░░░██░░░░░░▒▒▒░░░░██░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░░░▓███▒░░░░░░░▒▒▒▒▒▒▒▒░░░░▓██▒░░░░░░░▒███░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░░░░░▒▓███▓▒░░░░░░░▒░░▒▒▒▒░░░▒██▓██████▓░░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░░░░░░░░░▒████▓▒▒░░░░░░░░░░░░░░░▓██▒░░░░░░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░░░░░░░░░░░░░▒▓████▓░░░░░░░▓█████▒░░░░░░░░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒█████████▒░░░░░░░░░░░░░░░░░░░\n");
+				fprintf(conditionslog, "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒░░░░░░░░░░░░░░░░░░░░░░░\n");
+				fprintf(conditionslog, "------------------------------------------------------------\n");
+			}
+			fclose(conditionslog);//Cierra el archivo
 		}
-		fclose(conditionslog);//Cierra el archivo
-		sleep (2);//Duerme el hilo por 2 segundos
+		
+		sleep (1);//Duerme el hilo por 1 segundos
 	}
 }
 
